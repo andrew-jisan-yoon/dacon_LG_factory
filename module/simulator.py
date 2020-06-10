@@ -4,21 +4,14 @@ import numpy as np
 from pandas.api.types import is_numeric_dtype
 from pathlib import Path
 
+root_dir = Path(__file__).resolve().parents[1]
 
 class Simulator:
     def __init__(self):
-        self.sample_submission =\
-            pd.read_csv(os.path.join(Path(__file__).resolve().parent,
-                        'sample_submission.csv'))
-        self.max_count =\
-            pd.read_csv(os.path.join(Path(__file__).resolve().parent,
-                        'max_count.csv'))
-        self.stock =\
-            pd.read_csv(os.path.join(Path(__file__).resolve().parent,
-                        'stock.csv'))
-        order =\
-            pd.read_csv(os.path.join(Path(__file__).resolve().parent,
-                        'order.csv'), index_col=0)
+        self.sample_submission = pd.read_csv(root_dir + '/data/sample_submission.csv')
+        self.max_count = pd.read_csv(root_dir + '/data/max_count.csv')
+        self.stock = pd.read_csv(root_dir + "/data/stock.csv")
+        order = pd.read_csv(root_dir + "/data/order.csv", index_col=0)
         order.index = pd.to_datetime(order.index)
         self.order = order
 
