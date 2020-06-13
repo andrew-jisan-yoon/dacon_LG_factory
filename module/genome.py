@@ -45,6 +45,7 @@ class Genome():
         self.process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
 
     def update_mask(self):
+        """Update mask based on status parameters"""
         self.mask[:] = False
         if self.process_ready is False:
             if self.check_time == 28:
@@ -57,6 +58,16 @@ class Genome():
                 self.mask[:4] = True
 
     def forward(self, inputs):
+        """Feed-forward Event NN and MOL stock NN
+        
+        Args:
+            inputs(numpy.array): BLK demands over a month
+                                 shape = (input_len, )
+        Returns:
+            out1(str): one element from
+                       ['CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
+            out2(int): MOL input amount (valid only when out1 == 'PROCESS')
+        """
         # Event NN
         net = np.matmul(inputs, self.w1)
         net = self.linear(net)
@@ -93,14 +104,37 @@ class Genome():
         return x
 
     def create_order(self, order):
+        """
+        Adds one more month worth of dummy data to order
+        
+        Args:
+            order(pandas.DataFrame): order.csv with shape (91, 5)
+        Returns:
+            order(pandas.DataFrame): order.csv with shape (121, 5)
+        """
         for i in range(30):
             order.loc[91+i, :] = ['0000-00-00', 0, 0, 0, 0]
         return order
 
     def predict(self, order):
+        """
+        Generates a schedule based on the order
+        
+        Args:
+            order(pandas.DataFrame): order.csv with shape (91, 5)
+        Returns:
+            self.submission(pandas.DataFrame): predictions
+        Side-effects:
+            self.submission(pandas.DataFrame) : from sample_submission.csv to predictions
+            self.process_time(int) : repeatedly reassigned
+            self.process_ready(bool) : repeatedly reassigned
+            self.check_time(int) : repeatedly reassigned
+            self.process_mode(int) : repeatedly reassigned
+        """
         order = self.create_order(order)
         self.submission = submission_ini
         self.submission.loc[:, 'PRT_1':'PRT_4'] = 0
+        # run a loop row by row
         for s in range(self.submission.shape[0]):
             self.update_mask()
             inputs = np.array(order.loc[s//24:(s//24+30), 'BLK_1':'BLK_4']).\
@@ -173,6 +207,21 @@ class Genome():
 
 
 def genome_score(genome):
+    """
+    Run simulator to obtain genome score
+    
+    Args:
+        genome(obj:Genome)
+    Returns:
+        genome(obj:Genome)
+    Side-effects:
+        genome.submission(pandas.DataFrame): from sample_submission.csv to predictions
+        genome.score(float): assigned
+        genome.process_time(int): repeatedly reassigned
+        genome.process_ready(bool): repeatedly reassigned
+        genome.check_time(int): repeatedly reassigned
+        genome.process_mode(int): repeatedly reassigned
+    """
     submission = genome.predict(order_ini)
     genome.submission = submission
     genome.score, _ = simulator.get_score(submission)
