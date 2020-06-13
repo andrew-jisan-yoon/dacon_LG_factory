@@ -4,7 +4,7 @@ import numpy as np
 from pandas.api.types import is_numeric_dtype
 from pathlib import Path
 
-root_dir = Path(__file__).resolve().parents[1]
+root_dir = Path(__file__).resolve().parents[1].__str__()
 
 class Simulator:
     def __init__(self):
