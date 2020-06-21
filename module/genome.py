@@ -8,6 +8,8 @@ simulator = Simulator()
 root_dir = Path(__file__).resolve().parents[1].__str__()
 
 submission_ini = pd.read_csv(root_dir + "/data/sample_submission.csv")
+submission_ini.loc[:, 'PRT_1':'PRT_4'] = 0
+
 order_ini = pd.read_csv(root_dir + '/data/order.csv')
 
 
@@ -134,7 +136,6 @@ class Genome():
         """
         order = self.create_order(order)
         self.submission = submission_ini
-        self.submission.loc[:, 'PRT_1':'PRT_4'] = 0
         # run a loop row by row
         for s in range(self.submission.shape[0]):
             self.update_mask()
