@@ -18,6 +18,7 @@ class Genome():
     input_len = 125
     output_len_1, output_len_2 = 5, 12
     event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3', 3: 'CHECK_4', 4: 'PROCESS'}
+    # event_map = {0: 'STOP', 1: 'CHECK_1', 2: 'CHECK_2', 3: 'CHECK_3', 4: 'CHECK_4', 5: 'PROCESS', 6: 'CHANGE'}
     
     def __init__(self, h1=50, h2=50, h3=50):
         # initializing score
@@ -26,11 +27,29 @@ class Genome():
         # initializing mask to check available events
         self.event_mask = np.zeros([5], np.bool)
         
-        # Status parameters
-        self.check_time = 28    # CHECK -1/hr, 28 if process_time >=98
-        self.process_ready = False  # False if CHECK is required else True
-        self.process_mode = 0   # Represents item in PROCESS; 0 represents STOP
-        self.process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
+        # Status parameters of Line A
+        self.a_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
+        self.a_process_ready = False  # False if CHECK is required else True
+        self.a_process_mode = 0   # Represents item in PROCESS; 0 represents STOP
+        self.a_process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
+        
+        # Status parameters of Line B
+        self.b_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
+        self.b_process_ready = False  # False if CHECK is required else True
+        self.b_process_mode = 0   # Represents item in PROCESS; 0 represents STOP
+        self.b_process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
+
+    def update_mask(self):
+        pass
+    
+    def forward(self):
+        pass
+    
+    def backward(self):
+        pass
+    
+    def predict(self):
+        pass
 
 class Genome():
     def __init__(self, score_ini, input_len, output_len_1, output_len_2,
