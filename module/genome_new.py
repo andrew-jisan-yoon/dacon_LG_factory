@@ -8,10 +8,29 @@ simulator = Simulator()
 root_dir = Path(__file__).resolve().parents[1].__str__()
 
 submission_ini = pd.read_csv(root_dir + "/data/sample_submission.csv")
-submission_ini.loc[:, 'PRT_1':'PRT_4'] = 0
+submission_ini.loc[:, a.columns.difference(['time', 'Event_A', 'Event_B'])] = 0
 
 order_ini = pd.read_csv(root_dir + '/data/order.csv')
 
+
+class Genome():
+    score_ini = 1e8
+    input_len = 125
+    output_len_1, output_len_2 = 5, 12
+    event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3', 3: 'CHECK_4', 4: 'PROCESS'}
+    
+    def __init__(self, h1=50, h2=50, h3=50):
+        # initializing score
+        self.score = score_ini
+
+        # initializing mask to check available events
+        self.event_mask = np.zeros([5], np.bool)
+        
+        # Status parameters
+        self.check_time = 28    # CHECK -1/hr, 28 if process_time >=98
+        self.process_ready = False  # False if CHECK is required else True
+        self.process_mode = 0   # Represents item in PROCESS; 0 represents STOP
+        self.process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
 
 class Genome():
     def __init__(self, score_ini, input_len, output_len_1, output_len_2,
@@ -61,15 +80,18 @@ class Genome():
                 self.mask[:4] = True
 
     def forward(self, inputs):
-        """Feed-forward Event NN and MOL stock NN
+        """Feed-forward Event NN and MOL stock NN with one month-worth of demands
         
         Args:
             inputs(numpy.array): BLK demands over a month
                                  shape = (input_len, )
         Returns:
-            out1(str): one element from
+            event_a(str): one element from
                        ['CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
-            out2(int): MOL input amount (valid only when out1 == 'PROCESS')
+            mol_a(int): MOL input amount (valid only when event_a == 'PROCESS')
+            event_b(str): one element from
+                       ['CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
+            mol_b(int): MOL input amount (valid only when event_b == 'PROCESS')
         """
         # Event NN
         net = np.matmul(inputs, self.w1)
