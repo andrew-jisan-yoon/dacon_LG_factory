@@ -41,23 +41,29 @@ class Genome():
         self.event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3',
                           3: 'CHECK_4', 4: 'PROCESS'}
 
-        # Status parameters
-        self.check_time = 28    # CHECK -1/hr, 28 if process_time >=98
-        self.process_ready = False  # False if CHECK is required else True
-        self.process_mode = 0   # Represents item in PROCESS; 0 represents STOP
-        self.process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
+        # Status parameters of line A
+        self.a_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
+        self.a_process_ready = False  # False if CHECK is required else True
+        self.a_process_mode = 0   # Represents item in PROCESS; 0 represents STOP
+        self.a_process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
+        
+        # Status parameters of Line B
+        self.b_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
+        self.b_process_ready = False  # False if CHECK is required else True
+        self.b_process_mode = 0   # Represents item in PROCESS; 0 represents STOP
+        self.b_process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
 
     def update_mask(self):
         """Update mask based on status parameters"""
         self.mask[:] = False
-        if self.process_ready is False:
-            if self.check_time == 28:
+        if self.a_process_ready is False:
+            if self.a_check_time == 28:
                 self.mask[:4] = True  # ambiguity : corresponds to event_map
-            if self.check_time < 28:
-                self.mask[self.process_mode] = True  # ambiguity : 0 and STOP
-        if self.process_ready is True:
+            if self.a_check_time < 28:
+                self.mask[self.a_process_mode] = True  # ambiguity : 0 and STOP
+        if self.a_process_ready is True:
             self.mask[4] = True  # ambiguity : corresponds to event_map
-            if self.process_time > 98:
+            if self.a_process_time > 98:
                 self.mask[:4] = True
 
     def forward(self, inputs):
@@ -69,7 +75,7 @@ class Genome():
         Returns:
             out1(str): one element from
                        ['CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
-            out2(int): MOL input amount (valid only when out1 == 'PROCESS')
+            out2(int): MOL input amount (valid only when event_a == 'PROCESS')
         """
         # Event NN
         net = np.matmul(inputs, self.w1)
@@ -82,7 +88,7 @@ class Genome():
         net = self.softmax(net)
         net += 1
         net = net * self.mask
-        out1 = self.event_map[np.argmax(net)]
+        event_a = self.event_map[np.argmax(net)]
 
         # MOL stock NN
         net = np.matmul(inputs, self.w5)
@@ -93,9 +99,35 @@ class Genome():
         net = self.sigmoid(net)
         net = np.matmul(net, self.w8)
         net = self.softmax(net)
-        out2 = np.argmax(net)
-        out2 /= 2
-        return out1, out2
+        mol_a = np.argmax(net)
+        mol_a /= 2
+        
+        # Event NN
+        net = np.matmul(inputs, self.w1)
+        net = self.linear(net)
+        net = np.matmul(net, self.w2)
+        net = self.linear(net)
+        net = np.matmul(net, self.w3)
+        net = self.sigmoid(net)
+        net = np.matmul(net, self.w4)
+        net = self.softmax(net)
+        net += 1
+        net = net * self.mask
+        event_b = self.event_map[np.argmax(net)]
+    
+        # MOL stock NN
+        net = np.matmul(inputs, self.w5)
+        net = self.linear(net)
+        net = np.matmul(net, self.w6)
+        net = self.linear(net)
+        net = np.matmul(net, self.w7)
+        net = self.sigmoid(net)
+        net = np.matmul(net, self.w8)
+        net = self.softmax(net)
+        mol_b = np.argmax(net)
+        mol_b /= 2
+        
+        return event_a, mol_a, event_b, mol_b
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
@@ -129,10 +161,10 @@ class Genome():
             self.submission(pandas.DataFrame): predictions
         Side-effects:
             self.submission(pandas.DataFrame) : from sample_submission.csv to predictions
-            self.process_time(int) : repeatedly reassigned
-            self.process_ready(bool) : repeatedly reassigned
-            self.check_time(int) : repeatedly reassigned
-            self.process_mode(int) : repeatedly reassigned
+            self.a_process_time(int) : repeatedly reassigned
+            self.a_process_ready(bool) : repeatedly reassigned
+            self.a_check_time(int) : repeatedly reassigned
+            self.a_process_mode(int) : repeatedly reassigned
         """
         order = self.create_order(order)
         self.submission = submission_ini
@@ -142,69 +174,125 @@ class Genome():
             inputs = np.array(order.loc[s//24:(s//24+30), 'BLK_1':'BLK_4']).\
                 reshape(-1)
             inputs = np.append(inputs, s % 24)
-            out1, out2 = self.forward(inputs)
+            event_a, mol_a, event_b, mol_b = self.forward(inputs)
 
-            if out1 == 'CHECK_1':
-                if self.process_ready is True:
-                    self.process_ready = False
-                    self.check_time = 28
-                self.check_time -= 1
-                self.process_mode = 0
-                if self.check_time == 0:
-                    self.process_ready = True
-                    self.process_time = 0
-            elif out1 == 'CHECK_2':
-                if self.process_ready is True:
-                    self.process_ready = False
-                    self.check_time = 28
-                self.check_time -= 1
-                self.process_mode = 1
-                if self.check_time == 0:
-                    self.process_ready = True
-                    self.process_time = 0
-            elif out1 == 'CHECK_3':
-                if self.process_ready is True:
-                    self.process_ready = False
-                    self.check_time = 28
-                self.check_time -= 1
-                self.process_mode = 2
-                if self.check_time == 0:
-                    self.process_ready = True
-                    self.process_time = 0
-            elif out1 == 'CHECK_4':
-                if self.process_ready is True:
-                    self.process_ready = False
-                    self.check_time = 28
-                self.check_time -= 1
-                self.process_mode = 3
-                if self.check_time == 0:
-                    self.process_ready = True
-                    self.process_time = 0
-            elif out1 == 'PROCESS':
-                self.process_time += 1
-                if self.process_time == 140:
-                    self.process_ready = False
-                    self.check_time = 28
+            if event_a == 'CHECK_1':
+                if self.a_process_ready is True:
+                    self.a_process_ready = False
+                    self.a_check_time = 28
+                self.a_check_time -= 1
+                self.a_process_mode = 0
+                if self.a_check_time == 0:
+                    self.a_process_ready = True
+                    self.a_process_time = 0
+            elif event_a == 'CHECK_2':
+                if self.a_process_ready is True:
+                    self.a_process_ready = False
+                    self.a_check_time = 28
+                self.a_check_time -= 1
+                self.a_process_mode = 1
+                if self.a_check_time == 0:
+                    self.a_process_ready = True
+                    self.a_process_time = 0
+            elif event_a == 'CHECK_3':
+                if self.a_process_ready is True:
+                    self.a_process_ready = False
+                    self.a_check_time = 28
+                self.a_check_time -= 1
+                self.a_process_mode = 2
+                if self.a_check_time == 0:
+                    self.a_process_ready = True
+                    self.a_process_time = 0
+            elif event_a == 'CHECK_4':
+                if self.a_process_ready is True:
+                    self.a_process_ready = False
+                    self.a_check_time = 28
+                self.a_check_time -= 1
+                self.a_process_mode = 3
+                if self.a_check_time == 0:
+                    self.a_process_ready = True
+                    self.a_process_time = 0
+            elif event_a == 'PROCESS':
+                self.a_process_time += 1
+                if self.a_process_time == 140:
+                    self.a_process_ready = False
+                    self.a_check_time = 28
+            
+            # Line B
+            if event_b == 'CHECK_1':
+                if self.b_process_ready is True:
+                    self.b_process_ready = False
+                    self.b_check_time = 28
+                self.b_check_time -= 1
+                self.b_process_mode = 0
+                if self.b_check_time == 0:
+                    self.b_process_ready = True
+                    self.b_process_time = 0
+            elif event_b == 'CHECK_2':
+                if self.b_process_ready is True:
+                    self.b_process_ready = False
+                    self.b_check_time = 28
+                self.b_check_time -= 1
+                self.b_process_mode = 1
+                if self.b_check_time == 0:
+                    self.b_process_ready = True
+                    self.b_process_time = 0
+            elif event_b == 'CHECK_3':
+                if self.b_process_ready is True:
+                    self.b_process_ready = False
+                    self.b_check_time = 28
+                self.b_check_time -= 1
+                self.b_process_mode = 2
+                if self.b_check_time == 0:
+                    self.b_process_ready = True
+                    self.b_process_time = 0
+            elif event_b == 'CHECK_4':
+                if self.b_process_ready is True:
+                    self.b_process_ready = False
+                    self.b_check_time = 28
+                self.b_check_time -= 1
+                self.b_process_mode = 3
+                if self.b_check_time == 0:
+                    self.b_process_ready = True
+                    self.b_process_time = 0
+            elif event_b == 'PROCESS':
+                self.b_process_time += 1
+                if self.b_process_time == 140:
+                    self.b_process_ready = False
+                    self.b_check_time = 28
 
-            self.submission.loc[s, 'Event_A'] = out1
+            self.submission.loc[s, 'Event_A'] = event_a
             if self.submission.loc[s, 'Event_A'] == 'PROCESS':
-                self.submission.loc[s, 'MOL_A'] = out2
+                self.submission.loc[s, 'MOL_A'] = mol_a
             else:
                 self.submission.loc[s, 'MOL_A'] = 0
+            
+            self.submission.loc[s, 'Event_B'] = event_b
+            if self.submission.loc[s, 'Event_B'] == 'PROCESS':
+                self.submission.loc[s, 'MOL_B'] = mol_b
+            else:
+                self.submission.loc[s, 'MOL_B'] = 0
 
-        # MOL_A = 0 for the first 23 days
+        # MOL_A, MOL_B = 0, 0 for the first 23 days
         self.submission.loc[:24*23, 'MOL_A'] = 0
+        self.submission.loc[:24*23, 'MOL_B'] = 0
 
-        # Line A = Line B
-        self.submission.loc[:, 'Event_B'] = self.submission.loc[:, 'Event_A']
-        self.submission.loc[:, 'MOL_B'] = self.submission.loc[:, 'MOL_A']
+#         # Line A = Line B
+#         self.submission.loc[:, 'Event_B'] = self.submission.loc[:, 'Event_A']
+#         self.submission.loc[:, 'MOL_B'] = self.submission.loc[:, 'MOL_A']
 
-        # Initializing status parameters
-        self.check_time = 28
-        self.process_ready = False
-        self.process_mode = 0
-        self.process_time = 0
+        # Resetting status parameters
+        self.a_check_time = 28
+        self.a_process_ready = False
+        self.a_process_mode = 0
+        self.a_process_time = 0
 
+        # Resetting status parameters
+        self.b_check_time = 28
+        self.b_process_ready = False
+        self.b_process_mode = 0
+        self.b_process_time = 0
+        
         return self.submission
 
 
