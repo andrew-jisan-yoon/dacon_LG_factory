@@ -191,10 +191,13 @@ class Simulator:
         """
         # Block Order Difference
         blk_diff_m = 0
+        blk_diff_p = 0
         for item in blk_diffs:
             if item < 0:
-                blk_diff_m = blk_diff_m + abs(item)
-        score = blk_diff_m
+                blk_diff_m += abs(item)
+            elif item > 0:
+                blk_diff_p += abs(item)
+        score = blk_diff_m + blk_diff_p
         return score
 
     def get_score(self, df):
