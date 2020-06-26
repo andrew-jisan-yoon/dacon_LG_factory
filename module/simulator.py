@@ -4,14 +4,14 @@ import numpy as np
 from pandas.api.types import is_numeric_dtype
 from pathlib import Path
 
-root_dir = Path(__file__).resolve().parents[1].__str__()
+root_dir = Path(__file__).resolve().parents[1].__str__() + "/"
 
 class Simulator:
     def __init__(self):
-        self.sample_submission = pd.read_csv(root_dir + '/data/sample_submission.csv')
-        self.max_count = pd.read_csv(root_dir + '/data/max_count.csv')
-        self.stock = pd.read_csv(root_dir + "/data/stock.csv")
-        order = pd.read_csv(root_dir + "/data/order.csv", index_col=0)
+        self.sample_submission = pd.read_csv(root_dir + "data/sample_submission.csv")
+        self.max_count = pd.read_csv(root_dir + "data/max_count.csv")
+        self.stock = pd.read_csv(root_dir + "data/stock.csv")
+        order = pd.read_csv(root_dir + "data/order.csv", index_col=0)
         order.index = pd.to_datetime(order.index)
         self.order = order
 
@@ -24,6 +24,9 @@ class Simulator:
             return np.nan
 
     def cal_schedule_part_1(self, df):
+        """
+        Records how many of PRTS would be generated at what time, according to df.
+        """
         columns = ['PRT_1', 'PRT_2', 'PRT_3', 'PRT_4']
         df_set = df[columns]
         df_out = df_set * 0  # ambiguity : why make them all zero?
@@ -160,6 +163,9 @@ class Simulator:
         return df_stock, blk_diffs
 
     def subprocess(self, df):
+        """
+        Converts 'time' column into datetime and set it as index
+        """
         out = df.copy()
         column = 'time'
 
@@ -207,8 +213,7 @@ class Simulator:
         out_3 = self.cal_schedule_part_2(df, line='B')
         out = out_1 + out_2 + out_3
         out = self.add_stock(out, self.stock)
-        # order now considers deployment
-        order = self.order_rescale(out, self.order)
+        order = self.order_rescale(out, self.order)  # order now considers deployment
         out, blk_diffs = self.cal_stock(out, order)  # out = cumulative stocks
         score = self.cal_score(blk_diffs)
         return score, out
