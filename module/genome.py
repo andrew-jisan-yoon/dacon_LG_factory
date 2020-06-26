@@ -5,12 +5,12 @@ from pathlib import Path
 from module.simulator import Simulator
 
 simulator = Simulator()
-root_dir = Path(__file__).resolve().parents[1].__str__()
+root_dir = Path(__file__).resolve().parents[1].__str__() + "/"
 
-submission_ini = pd.read_csv(root_dir + "/data/sample_submission.csv")
+submission_ini = pd.read_csv(root_dir + "data/sample_submission.csv")
 submission_ini.loc[:, 'PRT_1':'PRT_4'] = 0
 
-order_ini = pd.read_csv(root_dir + '/data/order.csv')
+order_ini = pd.read_csv(root_dir + "data/order.csv")
 
 
 class Genome():
