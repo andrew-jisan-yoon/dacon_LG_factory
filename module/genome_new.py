@@ -14,13 +14,12 @@ order_ini = pd.read_csv(root_dir + "data/order.csv")
 
 
 class Genome():
-    score_ini = 1e8
-    input_len = 125
-    output_len_1, output_len_2 = 5, 12
     event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3', 3: 'CHECK_4', 4: 'PROCESS'}
     # event_map = {0: 'STOP', 1: 'CHECK_1', 2: 'CHECK_2', 3: 'CHECK_3', 4: 'CHECK_4', 5: 'PROCESS', 6: 'CHANGE'}
+    # [str(a) + str(b) for a in range(1, 5) for b in range(1, 5) if a != b]
     
-    def __init__(self, h1=50, h2=50, h3=50):
+    def __init__(self, score_ini, input_len, output_len_1, output_len_2,
+                 h1=50, h2=50, h3=50):
         # initializing score
         self.score = score_ini
 
