@@ -195,15 +195,15 @@ class Simulator:
         Parameters :
             blk_diffs : list of int
         """
-        # Block Order Difference
-        blk_diff_m = 0
-        blk_diff_p = 0
-        for item in blk_diffs:
-            if item < 0:
-                blk_diff_m += abs(item)
-            elif item > 0:
-                blk_diff_p += abs(item)
-        score = blk_diff_m + blk_diff_p
+        def f_xa(x, a):
+            return 1 - (x/a) if x < a else 0
+        
+        N = self.order.sum().sum()
+        p = sum([abs(blk_diff) for blk_diff in blk_diffs if blk_diff < 0])
+        q = sum([blk_diff for blk_diff in blk_diffs if blk_diff > 0])
+        
+        score = 50 * f_xa(p, 10 * N) + 20 * f_xa(q, 10 * N) + 30
+        
         return score
 
     def get_score(self, df):
@@ -216,4 +216,4 @@ class Simulator:
         order = self.order_rescale(out, self.order)  # order now considers deployment
         out, blk_diffs = self.cal_stock(out, order)  # out = cumulative stocks
         score = self.cal_score(blk_diffs)
-        return score, out, blk_diffs
+        return score, out
