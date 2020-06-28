@@ -37,7 +37,8 @@ class Genome():
         self.w8 = np.random.randn(self.hidden_layer3, output_len_2)
 
         # Event categories
-        self.mask = np.zeros([5], np.bool)  # Checks available events
+        self.a_mask = np.zeros([5], np.bool)  # Checks available events
+        self.b_mask = np.zeros([5], np.bool)  # Checks available events
         self.event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3',
                           3: 'CHECK_4', 4: 'PROCESS'}
 
@@ -55,16 +56,27 @@ class Genome():
 
     def update_mask(self):
         """Update mask based on status parameters"""
-        self.mask[:] = False
+        self.a_mask[:] = False
         if self.a_process_ready is False:
             if self.a_check_time == 28:
-                self.mask[:4] = True  # ambiguity : corresponds to event_map
+                self.a_mask[:4] = True  # ambiguity : corresponds to event_map
             if self.a_check_time < 28:
-                self.mask[self.a_process_mode] = True  # ambiguity : 0 and STOP
+                self.a_mask[self.a_process_mode] = True  # ambiguity : 0 and STOP
         if self.a_process_ready is True:
-            self.mask[4] = True  # ambiguity : corresponds to event_map
+            self.a_mask[4] = True  # ambiguity : corresponds to event_map
             if self.a_process_time > 98:
-                self.mask[:4] = True
+                self.a_mask[:4] = True
+        
+        self.b_mask[:] = False
+        if self.b_process_ready is False:
+            if self.b_check_time == 28:
+                self.b_mask[:4] = True  # ambiguity : corresponds to event_map
+            if self.b_check_time < 28:
+                self.b_mask[self.b_process_mode] = True  # ambiguity : 0 and STOP
+        if self.b_process_ready is True:
+            self.b_mask[4] = True  # ambiguity : corresponds to event_map
+            if self.b_process_time > 98:
+                self.b_mask[:4] = True
 
     def forward(self, inputs):
         """Feed-forward Event NN and MOL stock NN
@@ -87,8 +99,13 @@ class Genome():
         net = np.matmul(net, self.w4)
         net = self.softmax(net)
         net += 1
-        net = net * self.mask
-        event_a = self.event_map[np.argmax(net)]
+        
+        net_a, net_b = np.split(net, 2)
+        net_a = net_a * self.a_mask
+        net_b = net_b * self.b_mask
+        
+        event_a = self.event_map[np.argmax(net_a)]
+        event_b = self.event_map[np.argmax(net_b)]
 
         # MOL stock NN
         net = np.matmul(inputs, self.w5)
@@ -99,33 +116,10 @@ class Genome():
         net = self.sigmoid(net)
         net = np.matmul(net, self.w8)
         net = self.softmax(net)
-        mol_a = np.argmax(net)
-        mol_a /= 2
         
-        # Event NN
-        net = np.matmul(inputs, self.w1)
-        net = self.linear(net)
-        net = np.matmul(net, self.w2)
-        net = self.linear(net)
-        net = np.matmul(net, self.w3)
-        net = self.sigmoid(net)
-        net = np.matmul(net, self.w4)
-        net = self.softmax(net)
-        net += 1
-        net = net * self.mask
-        event_b = self.event_map[np.argmax(net)]
-    
-        # MOL stock NN
-        net = np.matmul(inputs, self.w5)
-        net = self.linear(net)
-        net = np.matmul(net, self.w6)
-        net = self.linear(net)
-        net = np.matmul(net, self.w7)
-        net = self.sigmoid(net)
-        net = np.matmul(net, self.w8)
-        net = self.softmax(net)
-        mol_b = np.argmax(net)
-        mol_b /= 2
+        net_a, net_b = np.split(net, 2)
+        mol_a = np.argmax(net_a) / 2
+        mol_b = np.argmax(net_b) / 2
         
         return event_a, mol_a, event_b, mol_b
 
