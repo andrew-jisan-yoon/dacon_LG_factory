@@ -139,9 +139,14 @@ class Simulator:
         """
         def f_xa(x, a):
             return 1 - (x/a) if x < a else 0
- 
-        score = sum(map(abs, blk_diffs))
-
+        
+        N = order.iloc[:, 1:].sum().sum()
+        p = sum([abs(blk_diff) for blk_diff in blk_diffs if blk_diff < 0])
+        q = sum([blk_diff for blk_diff in blk_diffs if blk_diff > 0])
+        
+        score = 50 * f_xa(p, 10 * N) + 20 * f_xa(q, 10 * N) + 30
+        
+        # score = sum(map(abs, blk_diffs))
         # return score
         return schedule, delta, stock, blk_diffs, score
 
