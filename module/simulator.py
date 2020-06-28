@@ -150,7 +150,7 @@ class Simulator:
                         mol_col = blk2mol[column]
                         # MOL produced at time
                         mol_num = df_stock.loc[time, mol_col]
-                        df_stock.loc[time, mol_col] = 0  # needless line
+                        df_stock.loc[time, mol_col] = 0
 
                         # blk generated at time
                         blk_gen = int(mol_num*p[column]*cut[column])
@@ -216,4 +216,4 @@ class Simulator:
         order = self.order_rescale(out, self.order)  # order now considers deployment
         out, blk_diffs = self.cal_stock(out, order)  # out = cumulative stocks
         score = self.cal_score(blk_diffs)
-        return score, out
+        return score, out, blk_diffs
