@@ -133,10 +133,6 @@ class Simulator:
                         blk_diffs.append(stock.loc[stock_idx, blk_type])
 
         # Calculating the score
-        """
-        To do:
-            1. Implement the evaluation metrdic used by the leaderboard
-        """
         def f_xa(x, a):
             return 1 - (x/a) if x < a else 0
         
@@ -145,18 +141,21 @@ class Simulator:
         q = sum([blk_diff for blk_diff in blk_diffs if blk_diff > 0])
         
         score = 50 * f_xa(p, 10 * N) + 20 * f_xa(q, 10 * N) + 30
-        
-        # score = sum(map(abs, blk_diffs))
-        # return score
-        return schedule, delta, stock, blk_diffs, score
+
+        return score, stock
 
 if __name__ == "__main__":
-    sim = Simulator()
-    sample = pd.read_csv(root_dir + "Dacon_baseline.csv")
-    
-    schedule, delta, stock, blk_diffs, score = sim.get_score(sample)
-    
+    import timeit
     from module.simulator import Simulator as Old_Simulator
-    old_sim = Old_Simulator()
     
-    old_score, old_out, old_blk_diffs = old_sim.get_score(sample)
+    sample = pd.read_csv("Dacon_baseline.csv")
+    sim = Simulator()
+    
+    start_time = timeit.default_timer()
+    score, stock = sim.get_score(sample)
+    print("new simulator time :", timeit.default_timer() - start_time)
+    
+    old_sim = Old_Simulator()
+    start_time = timeit.default_timer()
+    old_score, old_stock = old_sim.get_score(sample)
+    print("old simulator time :", timeit.default_timer() - start_time)
