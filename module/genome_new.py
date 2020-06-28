@@ -14,43 +14,196 @@ order_ini = pd.read_csv(root_dir + "data/order.csv")
 
 
 class Genome():
-    event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3', 3: 'CHECK_4', 4: 'PROCESS'}
-    # event_map = {0: 'STOP', 1: 'CHECK_1', 2: 'CHECK_2', 3: 'CHECK_3', 4: 'CHECK_4', 5: 'PROCESS', 6: 'CHANGE'}
-    # [str(a) + str(b) for a in range(1, 5) for b in range(1, 5) if a != b]
+    # CHANGE : [str(a) + str(b) for a in range(1, 5) for b in range(1, 5) if a != b]
     
-    def __init__(self, score_ini, input_len, output_len_1, output_len_2,
+    def __init__(self, score_ini=0, input_len=125, output_len_1=6 * 2, output_len_2=12 * 2,
                  h1=50, h2=50, h3=50):
         # initializing score
         self.score = score_ini
-
-        # initializing mask to check available events
-        self.event_mask = np.zeros([5], np.bool)
         
-        # Status parameters of production lines
-        # check_time : CHECK -1/hr, 28 if process_time >=98
-        # process_ready : False if CHECK is required else True
-        # process_mode : Represents item in PROCESS; 0 represents STOP
-        # process_time : PROCESS +1/hr, CHANGE +1/hr, 140 at max
-        status_params = {'check_time':28, 'process_ready':False, 'process_mode':0, 'process_time':0}
-        self.line_a, self.line_b = status_params.copy(), status_params.copy()
+        # number of nodes in hidden layers
+        self.hidden_layer1 = h1
+        self.hidden_layer2 = h2
+        self.hidden_layer3 = h3
+
+        # Generating weights for Event NN
+        self.w1 = np.random.randn(input_len, self.hidden_layer1)
+        self.w2 = np.random.randn(self.hidden_layer1, self.hidden_layer2)
+        self.w3 = np.random.randn(self.hidden_layer2, self.hidden_layer3)
+        self.w4 = np.random.randn(self.hidden_layer3, output_len_1)
+
+        # Generating weights for MOL stock NN
+        self.w5 = np.random.randn(input_len, self.hidden_layer1)
+        self.w6 = np.random.randn(self.hidden_layer1, self.hidden_layer2)
+        self.w7 = np.random.randn(self.hidden_layer2, self.hidden_layer3)
+        self.w8 = np.random.randn(self.hidden_layer3, output_len_2)
+        
+        # Creating input schedule template
+        schedule_cols = ['time', 'PRT_1', 'PRT_2', 'PRT_3', 'PRT_4', 'Event_A', 'MOL_A', 'Event_B', 'MOL_B']
+        schedule_idx = pd.RangeIndex(91 * 24)
+        self.schedule = pd.DataFrame(columns = schedule_cols, index = schedule_idx)
+
+        # Event categories
+        self.event_map = {0: 'STOP', 1: 'CHECK_1', 2: 'CHECK_2', 3: 'CHECK_3', 4: 'CHECK_4', 5: 'PROCESS'}
+        mask = np.zeros([6], np.bool)  # Checks available events
+        
+        # Statues parameters of production lines
+        params = {'check_time': 28, 'process_ready': False, 'process_type': 0, 'process_time': 0,
+                  'mask': mask}
+        self.prod_lines = {line: params for line in ['A', 'B']}
 
     def update_mask(self):
-        self.mask[:] = False
-        if self.process_ready is False:
-            if self.check_time == 28:
-                self.mask[:4] = True  # ambiguity : corresponds to event_map
-            if self.check_time < 28:
-                self.mask[self.process_mode] = True  # ambiguity : 0 and STOP
-        if self.process_ready is True:
-            self.mask[4] = True  # ambiguity : corresponds to event_map
-            if self.process_time > 98:
-                self.mask[:4] = True
+        for line in self.prod_lines:
+            line_params = self.prod_lines[line]
+            self.prod_lines[line]['mask'][:] = False
+            
+            if line_params['process_ready'] is False:
+                if line_params['check_time'] == 28:
+                    self.prod_lines[line]['mask'][1:5] = True
+                elif line_params['check_time'] < 28:
+                    self.prod_lines[line]['mask'][line_params['process_type']] = True
+            else:
+                self.prod_lines[line]['mask'][5] = True
+                if line_params['process_time'] > 98:
+                    self.prod_lines[line]['mask'][1:5] = True
     
-    def forward(self):
-        pass
+    def forward(self, inputs):
+        """Feed-forward Event NN and MOL stock NN
+        
+        Args:
+            inputs(numpy.array): BLK demands over a month
+                                 shape = (input_len, )
+        Returns:
+            out1(str): one element from
+                       ['CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
+            out2(int): MOL input amount (valid only when event_a == 'PROCESS')
+        """
+        # Event NN
+        net = np.matmul(inputs, self.w1)
+        net = self.linear(net)
+        net = np.matmul(net, self.w2)
+        net = self.linear(net)
+        net = np.matmul(net, self.w3)
+        net = self.sigmoid(net)
+        net = np.matmul(net, self.w4)
+        net = self.softmax(net)
+        net += 1
+        net_a, net_b = np.split(net, 2)
+        
+        net_a *= self.prod_lines['A']['mask']
+        event_a = self.event_map[np.argmax(net_a)]
+        
+        net_b *= self.prod_lines['B']['mask']
+        event_b = self.event_map[np.argmax(net_b)]
+
+        # MOL stock NN
+        net = np.matmul(inputs, self.w5)
+        net = self.linear(net)
+        net = np.matmul(net, self.w6)
+        net = self.linear(net)
+        net = np.matmul(net, self.w7)
+        net = self.sigmoid(net)
+        net = np.matmul(net, self.w8)
+        net = self.softmax(net)
+        
+        net_a, net_b = np.split(net, 2)
+        
+        mol_a = np.argmax(net_a)
+        mol_b = np.argmax(net_b)
+        
+        return event_a, mol_a, event_b, mol_b
     
-    def backward(self):
-        pass
     
-    def predict(self):
-        pass
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+
+    def softmax(self, x):
+        return np.exp(x) / np.sum(np.exp(x), axis=0)
+
+    def linear(self, x):
+        return x
+
+    def create_order(self, order):
+        """
+        Adds one more month worth of dummy data to order
+        
+        Args:
+            order(pandas.DataFrame): order.csv with shape (91, 5)
+        Returns:
+            order(pandas.DataFrame): order.csv with shape (121, 5)
+        """
+        for i in range(30):
+            order.loc[91+i, :] = ['0000-00-00', 0, 0, 0, 0]
+        return order
+    
+    def predict(self, order):
+        order = self.create_order(order)
+        self.submission = submission_ini
+        # run a loop row by row
+        for s in range(self.submission.shape[0]):
+            self.update_mask()
+            inputs = np.array(order.loc[s//24:(s//24+30), 'BLK_1':'BLK_4']).\
+                reshape(-1)
+            inputs = np.append(inputs, s % 24)
+            event_a, mol_a, event_b, mol_b = self.forward(inputs)
+            
+            events = {'A':event_a, 'B':event_b}
+            mols = {'A':mol_a, 'B':mol_b}
+            
+            for line in self.prod_lines:
+                line_params = self.prod_lines[line]
+                if events[line].startswith("CHECK_"):
+                    if line_params['process_ready'] is True:
+                        self.prod_lines[line]['process_ready'] = False
+                        self.prod_lines[line]['check_time'] = 28
+                    self.prod_lines[line]['check_time'] -= 1
+                    self.prod_lines[line]['process_type'] = int(events[line][-1])
+                    if line_params['check_time'] == 0:
+                        self.prod_lines[line]['process_ready'] = True
+                        self.prod_lines[line]['process_time'] = 0
+
+                elif events[line].startswith('PROCESS'):
+                    self.prod_lines[line]['process_time'] += 1
+                    if line_params['process_time'] == 140:
+                        self.prod_lines[line]['process_ready'] = False
+                        self.prod_lines[line]['check_time'] = 28
+                
+                self.submission.loc[s, f'Event_{line}'] = events[line]
+                if self.submission.loc[s, f'Event_{line}'].startswith("PROCESS"):
+                    self.submission.loc[s, f'MOL_{line}'] = mols[line]
+                else:
+                    self.submission.loc[s, f'MOL_{line}'] = 0
+                
+                self.submission.loc[:24*23, f'MOL_{line}'] = 0
+                
+                self.prod_lines[line]['check_time'] = 28
+                self.prod_lines[line]['process_ready'] = False
+                self.prod_lines[line]['process_type'] = 0
+                self.prod_lines[line]['process_time'] = 0
+        
+        return self.submission
+
+    
+def genome_score(genome):
+    """
+    Run simulator to obtain genome score
+    
+    Args:
+        genome(obj:Genome)
+    Returns:
+        genome(obj:Genome)
+    Side-effects:
+        genome.submission(pandas.DataFrame): from sample_submission.csv to predictions
+        genome.score(float): assigned
+        genome.process_time(int): repeatedly reassigned
+        genome.process_ready(bool): repeatedly reassigned
+        genome.check_time(int): repeatedly reassigned
+        genome.process_mode(int): repeatedly reassigned
+    """
+    submission = genome.predict(order_ini)
+    genome.submission = submission
+    genome.score, _ = simulator.get_score(submission)
+    return genome
+
+if __name__ == "__main__":
+    pass
