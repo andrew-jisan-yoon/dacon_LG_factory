@@ -37,10 +37,12 @@ class Genome():
         self.w8 = np.random.randn(self.hidden_layer3, output_len_2)
 
         # Event categories
-        self.a_mask = np.zeros([int(output_len_1 / 2)], np.bool)  # Checks available events
-        self.b_mask = np.zeros([int(output_len_1 / 2)], np.bool)  # Checks available events
-        self.event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3',
-                          3: 'CHECK_4', 4: 'PROCESS'}
+        num_events = int(output_len_1 / 2)
+        self.a_mask = np.zeros([num_events], np.bool)  # Checks available events
+        self.b_mask = np.zeros([num_events], np.bool)  # Checks available events
+        events = ['CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
+        assert (len(events) == num_events), "output_len_1 does not correspond to number of events"
+        self.event_map = dict(zip(range(num_events), events))
 
         # Status parameters of line A
         self.a_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
@@ -101,6 +103,7 @@ class Genome():
         net += 1
         
         net_a, net_b = np.split(net, 2)
+        
         net_a = net_a * self.a_mask
         net_b = net_b * self.b_mask
         
@@ -121,6 +124,7 @@ class Genome():
         mol_a = np.argmax(net_a) / 2
         mol_b = np.argmax(net_b) / 2
         
+        print(event_a, mol_a, event_b, mol_b)
         return event_a, mol_a, event_b, mol_b
 
     def sigmoid(self, x):
@@ -253,3 +257,6 @@ def genome_score(genome):
     genome.submission = submission
     genome.score, _ = simulator.get_score(submission)
     return genome
+
+if __name__ == "__main__":
+    pass
