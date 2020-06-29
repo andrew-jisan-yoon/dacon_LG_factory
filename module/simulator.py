@@ -190,7 +190,7 @@ class Simulator:
         df_rescale = df_rescale.fillna(0)
         return df_rescale
 
-    def cal_score(self, blk_diffs):
+    def cal_score(self, blk_diffs, c, c_n):
         """
         Parameters :
             blk_diffs : list of int
@@ -202,11 +202,30 @@ class Simulator:
         p = sum([abs(blk_diff) for blk_diff in blk_diffs if blk_diff < 0])
         q = sum([blk_diff for blk_diff in blk_diffs if blk_diff > 0])
         
-        score = 50 * f_xa(p, 10 * N) + 20 * f_xa(q, 10 * N) + 30
+        M = 91 * 24 * 2
+        
+        score = 50 * f_xa(p, 10 * N) + 20 * f_xa(q, 10 * N)
+        score += 20 * (f_xa(c, M) / (1 + 0.1 * c_n)) + 10
         
         return score
 
     def get_score(self, df):
+        def count_change(submission):
+            event_a = submission['event_a']
+            event_b = submission['event_b']
+            
+            c_n_a = event_a.loc[event_a.shift() != event_a].str.startswith("CHANGE").sum()
+            c_n_b = event_b.loc[event_b.shift() != event_b].str.startswith("CHANGE").sum()
+            
+            c_a = event_a.str.startswith("CHANGE").sum()
+            c_b = event_b.str.startswith("CHANGE").sum()
+            
+            c_n = c_n_a + c_n_b
+            c = c_a + c_b
+            
+            return c, c_n
+        
+        c, c_n = count_change(df)
         df = self.subprocess(df)
         out_1 = self.cal_schedule_part_1(df)
         out_2 = self.cal_schedule_part_2(df, line='A')
@@ -215,5 +234,5 @@ class Simulator:
         out = self.add_stock(out, self.stock)
         order = self.order_rescale(out, self.order)  # order now considers deployment
         out, blk_diffs = self.cal_stock(out, order)  # out = cumulative stocks
-        score = self.cal_score(blk_diffs)
+        score = self.cal_score(blk_diffs, c, c_n)
         return score, out
