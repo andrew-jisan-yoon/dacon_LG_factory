@@ -37,8 +37,8 @@ class Genome():
         self.w8 = np.random.randn(self.hidden_layer3, output_len_2)
 
         # Event categories
-        self.a_mask = np.zeros([5], np.bool)  # Checks available events
-        self.b_mask = np.zeros([5], np.bool)  # Checks available events
+        self.a_mask = np.zeros([int(output_len_1 / 2)], np.bool)  # Checks available events
+        self.b_mask = np.zeros([int(output_len_1 / 2)], np.bool)  # Checks available events
         self.event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3',
                           3: 'CHECK_4', 4: 'PROCESS'}
 
@@ -170,39 +170,12 @@ class Genome():
             inputs = np.append(inputs, s % 24)
             event_a, mol_a, event_b, mol_b = self.forward(inputs)
 
-            if event_a == 'CHECK_1':
+            if event_a.startswith('CHECK_'):
                 if self.a_process_ready is True:
                     self.a_process_ready = False
                     self.a_check_time = 28
                 self.a_check_time -= 1
-                self.a_process_mode = 0
-                if self.a_check_time == 0:
-                    self.a_process_ready = True
-                    self.a_process_time = 0
-            elif event_a == 'CHECK_2':
-                if self.a_process_ready is True:
-                    self.a_process_ready = False
-                    self.a_check_time = 28
-                self.a_check_time -= 1
-                self.a_process_mode = 1
-                if self.a_check_time == 0:
-                    self.a_process_ready = True
-                    self.a_process_time = 0
-            elif event_a == 'CHECK_3':
-                if self.a_process_ready is True:
-                    self.a_process_ready = False
-                    self.a_check_time = 28
-                self.a_check_time -= 1
-                self.a_process_mode = 2
-                if self.a_check_time == 0:
-                    self.a_process_ready = True
-                    self.a_process_time = 0
-            elif event_a == 'CHECK_4':
-                if self.a_process_ready is True:
-                    self.a_process_ready = False
-                    self.a_check_time = 28
-                self.a_check_time -= 1
-                self.a_process_mode = 3
+                self.a_process_mode = int(event_a[-1]) - 1
                 if self.a_check_time == 0:
                     self.a_process_ready = True
                     self.a_process_time = 0
@@ -213,39 +186,12 @@ class Genome():
                     self.a_check_time = 28
             
             # Line B
-            if event_b == 'CHECK_1':
+            if event_b.startswith('CHECK_'):
                 if self.b_process_ready is True:
                     self.b_process_ready = False
                     self.b_check_time = 28
                 self.b_check_time -= 1
-                self.b_process_mode = 0
-                if self.b_check_time == 0:
-                    self.b_process_ready = True
-                    self.b_process_time = 0
-            elif event_b == 'CHECK_2':
-                if self.b_process_ready is True:
-                    self.b_process_ready = False
-                    self.b_check_time = 28
-                self.b_check_time -= 1
-                self.b_process_mode = 1
-                if self.b_check_time == 0:
-                    self.b_process_ready = True
-                    self.b_process_time = 0
-            elif event_b == 'CHECK_3':
-                if self.b_process_ready is True:
-                    self.b_process_ready = False
-                    self.b_check_time = 28
-                self.b_check_time -= 1
-                self.b_process_mode = 2
-                if self.b_check_time == 0:
-                    self.b_process_ready = True
-                    self.b_process_time = 0
-            elif event_b == 'CHECK_4':
-                if self.b_process_ready is True:
-                    self.b_process_ready = False
-                    self.b_check_time = 28
-                self.b_check_time -= 1
-                self.b_process_mode = 3
+                self.b_process_mode = int(event_b[-1]) - 1
                 if self.b_check_time == 0:
                     self.b_process_ready = True
                     self.b_process_time = 0
@@ -270,10 +216,6 @@ class Genome():
         # MOL_A, MOL_B = 0, 0 for the first 23 days
         self.submission.loc[:24*23, 'MOL_A'] = 0
         self.submission.loc[:24*23, 'MOL_B'] = 0
-
-#         # Line A = Line B
-#         self.submission.loc[:, 'Event_B'] = self.submission.loc[:, 'Event_A']
-#         self.submission.loc[:, 'MOL_B'] = self.submission.loc[:, 'MOL_A']
 
         # Resetting status parameters
         self.a_check_time = 28
