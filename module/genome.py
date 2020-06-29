@@ -42,7 +42,7 @@ class Genome():
         num_events = int(output_len_1 / 2)
         self.a_mask = np.zeros([num_events], np.bool)  # Checks available events
         self.b_mask = np.zeros([num_events], np.bool)  # Checks available events
-        events = ['CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
+        events = ['STOP', 'CHECK_1', 'CHECK_2', 'CHECK_3', 'CHECK_4', 'PROCESS']
         change_events = [f"CHANGE_{from_mol}{to_mol}" for from_mol in range(1, 5) for to_mol in range(1, 5) if from_mol != to_mol]
         events.extend(change_events)
         assert (len(events) == num_events), "output_len_1 does not correspond to number of events"
@@ -57,63 +57,67 @@ class Genome():
         # Status parameters of line A
         self.a_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
         self.a_process_ready = False  # False if CHECK is required else True
-        self.a_process_mode = 0   # Represents item in PROCESS; 0 represents STOP
+        self.a_process_mode = 0   # Represents ongoing event in event_map; 0 represents STOP
         self.a_process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
         self.a_change_time = 0    # CHANGE +1/hr, cap at change_duration
-        self.a_change_curr = None
+        self.a_change_gap = 0   # +1 when CHANGE ends, -1/hr afterwards, should be 0 when CHANGE starts
         
         # Status parameters of Line B
         self.b_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
         self.b_process_ready = False  # False if CHECK is required else True
-        self.b_process_mode = 0   # Represents item in PROCESS; 0 represents STOP
+        self.b_process_mode = 0   # Represents ongoing event in event_map; 0 represents STOP
         self.b_process_time = 0   # PROCESS +1/hr, CHANGE +1/hr, 140 at max
         self.b_change_time = 0    # CHANGE +1/hr, cap at change_duration
-        self.b_change_curr = None
+        self.b_change_gap = 0   # +1 when CHANGE ends, -1/hr afterwards, should be 0 when CHANGE starts
         
     def update_mask(self):
         """Update mask based on status parameters"""
         self.a_mask[:] = False
         if self.a_process_ready is False:
             if self.a_check_time == 28:
-                self.a_mask[:4] = True  # ambiguity : corresponds to event_map
+                self.a_mask[1:5] = True  # allows any of CHECK events
             elif self.a_check_time < 28:
-                self.a_mask[self.a_process_mode] = True  # ambiguity : 0 and STOP
+                self.a_mask[self.a_process_mode] = True  # enforces CHECK event in progress
         else:
-            self.a_mask[4] = True  # ambiguity : corresponds to event_map
+            self.a_mask[5] = True  # enforces PROCESS event
             if self.a_process_time > 98:
-                self.a_mask[:4] = True
-            if self.a_change_time == 0:
-                if self.a_process_time > 0:
-                    for idx, event in self.event_map.items():
-                        if event.startswith(f"CHANGE_{self.a_process_mode}"):
-                            duration = self.change_duration.loc[event, 'time']
-                            if self.a_process_time <= (140 - duration):
-                                self.a_mask[idx] = True
-            elif self.a_change_curr is not None:
-                self.a_mask[:] = False
-                self.a_mask[self.a_change_curr['idx']] = True
+                self.a_mask[1:5] = True  # allows CHECK event when PROCESS lasted 98 hours
+            
+#             if self.a_change_curr['gap'] == 0:
+#                 if self.a_change_time == 0:  # if CHANGE did not start
+#                     if self.a_process_time > 0:  # if 
+#                         for idx, event in self.event_map.items():
+#                             if event.startswith(f"CHANGE_{self.a_process_mode + 1}"):
+#                                 duration = self.change_duration.loc[event, 'time']
+#                                 if self.a_process_time < (140 - duration):
+#                                     self.a_mask[idx] = True
+#                 elif self.a_change_curr['name'] is not None:
+#                     self.a_mask[:] = False
+#                     self.a_mask[self.a_change_curr['idx']] = True
 
         
         self.b_mask[:] = False
         if self.b_process_ready is False:
             if self.b_check_time == 28:
-                self.b_mask[:4] = True  # ambiguity : corresponds to event_map
+                self.b_mask[1:5] = True  # ambiguity : corresponds to event_map
             elif self.b_check_time < 28:
                 self.b_mask[self.b_process_mode] = True  # ambiguity : 0 and STOP
         else:
-            self.b_mask[4] = True  # ambiguity : corresponds to event_map
+            self.b_mask[5] = True  # ambiguity : corresponds to event_map
             if self.b_process_time > 98:
-                self.b_mask[:4] = True
-            if self.b_change_time == 0:
-                if self.b_process_time > 0:
-                    for idx, event in self.event_map.items():
-                        if event.startswith(f"CHANGE_{self.b_process_mode}"):
-                            duration = self.change_duration.loc[event, 'time']
-                            if self.b_process_time <= (140 - duration):
-                                self.b_mask[idx] = True
-            elif self.b_change_curr is not None:
-                self.b_mask[:] = False
-                self.b_mask[self.b_change_curr['idx']] = True
+                self.b_mask[1:5] = True
+                
+#             if self.b_change_gap == 0:
+#                 if self.b_change_time == 0:
+#                     if self.b_process_time > 0:
+#                         for idx, event in self.event_map.items():
+#                             if event.startswith(f"CHANGE_{self.b_process_mode + 1}"):
+#                                 duration = self.change_duration.loc[event, 'time']
+#                                 if self.b_process_time < (140 - duration):
+#                                     self.b_mask[idx] = True
+#                 elif self.b_change_curr is not None:
+#                     self.b_mask[:] = False
+#                     self.b_mask[self.b_change_curr['idx']] = True
 
     def forward(self, inputs):
         """Feed-forward Event NN and MOL stock NN
@@ -208,12 +212,15 @@ class Genome():
             inputs = np.append(inputs, s % 24)
             event_a, mol_a, event_b, mol_b = self.forward(inputs)
 
+            if self.a_change_gap > 0:
+                    self.a_change_gap -= 1
+
             if event_a.startswith('CHECK_'):
                 if self.a_process_ready is True:
                     self.a_process_ready = False
                     self.a_check_time = 28
                 self.a_check_time -= 1
-                self.a_process_mode = int(event_a[-1]) - 1
+                self.a_process_mode = int(event_a[-1])
                 if self.a_check_time == 0:
                     self.a_process_ready = True
                     self.a_process_time = 0
@@ -222,30 +229,34 @@ class Genome():
                 if self.a_process_time == 140:
                     self.a_process_ready = False
                     self.a_check_time = 28
-            elif event_a.startswith("CHANGE_"):
-                assert (self.a_process_ready == True), "process_ready should be true for CHANGE"
-                self.a_process_time += 1
-                self.a_change_time += 1
-                if self.a_process_time == 140:
-                    self.a_process_ready = False
-                    self.a_check_time = 28
-                if self.a_change_time == 1:
-                    for idx, event in self.event_map.items():
-                        if event == event_a:
-                            self.a_change_curr = {"idx": idx, "name": event_a}
-                elif self.a_change_time == self.change_duration.loc[self.a_change_curr['name'], 'time']:
-                    self.a_process_mode = event_a[-1]
-                    self.a_change_time = 0
-                    self.a_change_curr = None
                     
+#             elif event_a.startswith("CHANGE_"):
+#                 assert (self.a_process_ready == True), "process_ready should be true for CHANGE"
+#                 self.a_process_time += 1
+#                 self.a_change_time += 1
+#                 if self.a_process_time == 140:
+#                     self.a_process_ready = False
+#                     self.a_check_time = 28
+#                 if self.a_change_time == 1:
+#                     for idx, event in self.event_map.items():
+#                         if event == event_a:
+#                             self.a_change_curr = {"idx": idx, "name": event_a}
+#                 elif self.a_change_time == self.change_duration.loc[self.a_change_curr['name'], 'time']:
+#                     self.a_process_mode = int(event_a[-1])
+#                     self.a_change_time = 0
+#                     self.a_change_curr = None
+#                     self.a_change_gap = 1
             
             # Line B
+            if self.b_change_gap > 0:
+                self.b_change_gap -= 1
+            
             if event_b.startswith('CHECK_'):
                 if self.b_process_ready is True:
                     self.b_process_ready = False
                     self.b_check_time = 28
                 self.b_check_time -= 1
-                self.b_process_mode = int(event_b[-1]) - 1
+                self.b_process_mode = int(event_b[-1])
                 if self.b_check_time == 0:
                     self.b_process_ready = True
                     self.b_process_time = 0
@@ -254,21 +265,23 @@ class Genome():
                 if self.b_process_time == 140:
                     self.b_process_ready = False
                     self.b_check_time = 28
-            elif event_b.startswith("CHANGE_"):
-                assert (self.b_process_ready == True), "process_ready should be true for CHANGE"
-                self.b_process_time += 1
-                self.b_change_time += 1
-                if self.b_process_time == 140:
-                    self.b_process_ready = False
-                    self.b_check_time = 28
-                if self.b_change_time == 1:
-                    for idx, event in self.event_map.items():
-                        if event == event_b:
-                            self.b_change_curr = {"idx": idx, "name": event_b}
-                elif self.b_change_time == self.change_duration.loc[self.b_change_curr['name'], 'time']:
-                    self.b_process_mode = event_b[-1]
-                    self.b_change_time = 0
-                    self.b_change_curr = None
+                    
+#             elif event_b.startswith("CHANGE_"):
+#                 assert (self.b_process_ready == True), "process_ready should be true for CHANGE"
+#                 self.b_process_time += 1
+#                 self.b_change_time += 1
+#                 if self.b_process_time == 140:
+#                     self.b_process_ready = False
+#                     self.b_check_time = 28
+#                 if self.b_change_time == 1:
+#                     for idx, event in self.event_map.items():
+#                         if event == event_b:
+#                             self.b_change_curr = {"idx": idx, "name": event_b}
+#                 elif self.b_change_time == self.change_duration.loc[self.b_change_curr['name'], 'time']:
+#                     self.b_process_mode = int(event_b[-1])
+#                     self.b_change_time = 0
+#                     self.b_change_curr = None
+#                     self.b_change_gap = 1
 
             self.submission.loc[s, 'Event_A'] = event_a
             if self.submission.loc[s, 'Event_A'] == 'PROCESS':
