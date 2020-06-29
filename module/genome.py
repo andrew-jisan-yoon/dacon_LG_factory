@@ -124,7 +124,7 @@ class Genome():
         return event_a, mol_a, event_b, mol_b
 
     def sigmoid(self, x):
-        x = np.array(x, dtype=float64)
+        x = np.array(x, dtype=np.float64)
         return 1 / (1 + np.exp(-x))
 
     def softmax(self, x):
