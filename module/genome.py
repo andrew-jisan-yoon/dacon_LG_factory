@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from module.simulator import Simulator
+import warnings
+warnings.filterwarnings(action='ignore')
 
 simulator = Simulator()
 root_dir = Path(__file__).resolve().parents[1].__str__() + "/"
@@ -124,11 +126,9 @@ class Genome():
         mol_a = np.argmax(net_a) / 2
         mol_b = np.argmax(net_b) / 2
         
-        print(event_a, mol_a, event_b, mol_b)
         return event_a, mol_a, event_b, mol_b
 
     def sigmoid(self, x):
-        x = np.array(x, dtype=np.float64)
         return 1 / (1 + np.exp(-x))
 
     def softmax(self, x):
