@@ -46,6 +46,9 @@ class Genome():
         assert (len(events) == num_events), "output_len_1 does not correspond to number of events"
         self.event_map = dict(zip(range(num_events), events))
 
+        # Reading change_time.csv
+        self.change_time = pd.read_csv("data/change_time.csv")
+        
         # Status parameters of line A
         self.a_check_time = 28    # CHECK -1/hr, 28 if process_time >=98
         self.a_process_ready = False  # False if CHECK is required else True
@@ -189,6 +192,7 @@ class Genome():
                 if self.a_process_time == 140:
                     self.a_process_ready = False
                     self.a_check_time = 28
+                
             
             # Line B
             if event_b.startswith('CHECK_'):
