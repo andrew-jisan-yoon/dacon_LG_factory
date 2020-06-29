@@ -62,9 +62,9 @@ class Genome():
         if self.a_process_ready is False:
             if self.a_check_time == 28:
                 self.a_mask[:4] = True  # ambiguity : corresponds to event_map
-            if self.a_check_time < 28:
+            elif self.a_check_time < 28:
                 self.a_mask[self.a_process_mode] = True  # ambiguity : 0 and STOP
-        if self.a_process_ready is True:
+        else:
             self.a_mask[4] = True  # ambiguity : corresponds to event_map
             if self.a_process_time > 98:
                 self.a_mask[:4] = True
@@ -73,9 +73,9 @@ class Genome():
         if self.b_process_ready is False:
             if self.b_check_time == 28:
                 self.b_mask[:4] = True  # ambiguity : corresponds to event_map
-            if self.b_check_time < 28:
+            elif self.b_check_time < 28:
                 self.b_mask[self.b_process_mode] = True  # ambiguity : 0 and STOP
-        if self.b_process_ready is True:
+        else:
             self.b_mask[4] = True  # ambiguity : corresponds to event_map
             if self.b_process_time > 98:
                 self.b_mask[:4] = True
