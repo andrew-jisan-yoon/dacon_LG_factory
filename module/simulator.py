@@ -211,8 +211,8 @@ class Simulator:
 
     def get_score(self, df):
         def count_change(submission):
-            event_a = submission['event_a']
-            event_b = submission['event_b']
+            event_a = submission['Event_A']
+            event_b = submission['Event_B']
             
             c_n_a = event_a.loc[event_a.shift() != event_a].str.startswith("CHANGE").sum()
             c_n_b = event_b.loc[event_b.shift() != event_b].str.startswith("CHANGE").sum()
