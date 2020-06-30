@@ -14,9 +14,8 @@ order_ini = pd.read_csv(root_dir + "data/order.csv")
 
 
 class Genome():
-    # CHANGE : [str(a) + str(b) for a in range(1, 5) for b in range(1, 5) if a != b]
     
-    def __init__(self, score_ini=0, input_len=125, output_len_1=6 * 2, output_len_2=12 * 2,
+    def __init__(self, score_ini=0, input_len=125, output_len_1=5 * 2, output_len_2=12 * 2,
                  h1=50, h2=50, h3=50):
         # initializing score
         self.score = score_ini
@@ -44,8 +43,8 @@ class Genome():
         self.schedule = pd.DataFrame(columns = schedule_cols, index = schedule_idx)
 
         # Event categories
-        self.event_map = {0: 'STOP', 1: 'CHECK_1', 2: 'CHECK_2', 3: 'CHECK_3', 4: 'CHECK_4', 5: 'PROCESS'}
-        mask = np.zeros([6], np.bool)  # Checks available events
+        self.event_map = {0: 'CHECK_1', 1: 'CHECK_2', 2: 'CHECK_3', 3: 'CHECK_4', 4: 'PROCESS'}
+        mask = np.zeros([int(output_len_1 / 2)], np.bool)  # Checks available events
         
         # Statues parameters of production lines
         params = {'check_time': 28, 'process_ready': False, 'process_type': 0, 'process_time': 0,
@@ -54,18 +53,17 @@ class Genome():
 
     def update_mask(self):
         for line in self.prod_lines:
-            line_params = self.prod_lines[line]
             self.prod_lines[line]['mask'][:] = False
             
-            if line_params['process_ready'] is False:
-                if line_params['check_time'] == 28:
-                    self.prod_lines[line]['mask'][1:5] = True
-                elif line_params['check_time'] < 28:
-                    self.prod_lines[line]['mask'][line_params['process_type']] = True
+            if self.prod_lines[line]['process_ready'] is False:
+                if self.prod_lines[line]['check_time'] == 28:
+                    self.prod_lines[line]['mask'][0:4] = True
+                elif self.prod_lines[line]['check_time'] < 28:
+                    self.prod_lines[line]['mask'][self.prod_lines[line]['process_type']] = True
             else:
-                self.prod_lines[line]['mask'][5] = True
-                if line_params['process_time'] > 98:
-                    self.prod_lines[line]['mask'][1:5] = True
+                self.prod_lines[line]['mask'][4] = True
+                if self.prod_lines[line]['process_time'] > 98:
+                    self.prod_lines[line]['mask'][0:4] = True
     
     def forward(self, inputs):
         """Feed-forward Event NN and MOL stock NN
@@ -90,10 +88,10 @@ class Genome():
         net += 1
         net_a, net_b = np.split(net, 2)
         
-        net_a *= self.prod_lines['A']['mask']
+        net_a = net_a * self.prod_lines['A']['mask']
         event_a = self.event_map[np.argmax(net_a)]
         
-        net_b *= self.prod_lines['B']['mask']
+        net_b = net_b * self.prod_lines['B']['mask']
         event_b = self.event_map[np.argmax(net_b)]
 
         # MOL stock NN
@@ -108,13 +106,15 @@ class Genome():
         
         net_a, net_b = np.split(net, 2)
         
-        mol_a = np.argmax(net_a)
-        mol_b = np.argmax(net_b)
+        mol_a = np.argmax(net_a) / 2
+        mol_b = np.argmax(net_b) / 2
         
+        print(event_a, mol_a, event_b, mol_b)
         return event_a, mol_a, event_b, mol_b
     
     
     def sigmoid(self, x):
+        x = np.array(x, dtype=np.float64)
         return 1 / (1 + np.exp(-x))
 
     def softmax(self, x):
@@ -151,31 +151,34 @@ class Genome():
             mols = {'A':mol_a, 'B':mol_b}
             
             for line in self.prod_lines:
-                line_params = self.prod_lines[line]
                 if events[line].startswith("CHECK_"):
-                    if line_params['process_ready'] is True:
+                    if self.prod_lines[line]['process_ready'] is True:
                         self.prod_lines[line]['process_ready'] = False
                         self.prod_lines[line]['check_time'] = 28
                     self.prod_lines[line]['check_time'] -= 1
-                    self.prod_lines[line]['process_type'] = int(events[line][-1])
-                    if line_params['check_time'] == 0:
+                    self.prod_lines[line]['process_type'] = int(events[line][-1]) - 1
+                    if self.prod_lines[line]['check_time'] == 0:
                         self.prod_lines[line]['process_ready'] = True
                         self.prod_lines[line]['process_time'] = 0
 
                 elif events[line].startswith('PROCESS'):
+                    print("PROCESS BRANCH traveled")
                     self.prod_lines[line]['process_time'] += 1
-                    if line_params['process_time'] == 140:
+                    if self.prod_lines[line]['process_time'] == 140:
                         self.prod_lines[line]['process_ready'] = False
                         self.prod_lines[line]['check_time'] = 28
                 
                 self.submission.loc[s, f'Event_{line}'] = events[line]
                 if self.submission.loc[s, f'Event_{line}'].startswith("PROCESS"):
                     self.submission.loc[s, f'MOL_{line}'] = mols[line]
+                    print(f"{mols[line]} MOLs added to {line}")
                 else:
                     self.submission.loc[s, f'MOL_{line}'] = 0
                 
-                self.submission.loc[:24*23, f'MOL_{line}'] = 0
-                
+            self.submission.loc[:24*23, 'MOL_A'] = 0
+            self.submission.loc[:24*23, 'MOL_B'] = 0
+            
+            for line in self.prod_lines:
                 self.prod_lines[line]['check_time'] = 28
                 self.prod_lines[line]['process_ready'] = False
                 self.prod_lines[line]['process_type'] = 0
