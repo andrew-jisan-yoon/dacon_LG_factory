@@ -1,7 +1,9 @@
-# dacon_LG_factory
+# Submission to Dacon competition
+Competition webpage : https://dacon.io/competitions/official/235612/overview/
 
-https://dacon.io/competitions/official/235612/overview/
-
-Currently implemented : Genetic algorithm
-
-Algorithm(s) to try : Simulated annealing
+Project status : work in progress
+- [x] model two production lines
+- [x] model CHANGE and STOP events
+- [x] update score function
+- [ ] refactor code
+- [ ] experiment with alternative algorithm (ex. simulated annealing)
