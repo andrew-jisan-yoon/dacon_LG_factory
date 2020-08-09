@@ -4,3 +4,11 @@ Simulator class specifications:
     2. get_score instance function accepts submission csv file
     3. get_score instance function returns a float value and a dataframe, respectively for a score and a remaining stock
 """
+
+class Simulator:
+    def __init__(self):
+        pass
+    
+    def get_score(self, submission_df):
+        pass
+    
